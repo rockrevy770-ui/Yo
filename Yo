@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>GameMarket Hooks — Échanges & Prix des 5 Jeux les Plus Médiatisés</title>
+<style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    :root {
+        --bg: #0a0a0f; --bg2: #111118; --bg3: #1a1a24;
+        --panel: #16161f; --panel2: #1e1e2a; --border: #2a2a3a;
+        --ink: #e8e8f0; --dim: #8888a0; --faint: #55556a;
+        --success: #2ecc71; --error: #e74c3c; --warn: #f39c12;
+        --accent: #6366f1; --accent2: #8b5cf6;
+        --fc: #00b4d8; --cs: #ff6b35; --fn: #9b59b6; --rl: #3498db; --vl: #ff4655;
+        --radius: 12px;
+    }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        background: var(--bg); color: var(--ink); min-height: 100vh;
+        padding: 1.2rem 1rem 6rem; font-size: 15px; line-height: 1.5;
+        max-width: 1100px; margin: 0 auto;
+    }
+
+    /* ── HEADER ── */
+    header { margin-bottom: 1.8rem; text-align: center; }
+    .logo { font-size: 1.8rem; font-weight: 800; letter-spacing: -0.04em;
+        background: linear-gradient(135deg, var(--accent), var(--accent2), var(--fc));
+        -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 0.2rem; }
+    .subtitle { font-size: 0.8rem; color: var(--dim); font-style: italic; }
+
+    /* ── TICKER ── */
+    .ticker-wrap { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-bottom: 1.5rem; padding: 0.5rem 0; }
+    .ticker { display: flex; gap: 2rem; animation: ticker 40s linear infinite; white-space: nowrap; width: max-content; }
+    .ticker:hover { animation-play-state: paused; }
+    @keyframes ticker { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+    .ticker-item { font-size: 0.72rem; font-family: ui-monospace, monospace; display: flex; align-items: center; gap: 0.4rem; }
+    .ticker-item .tk-name { color: var(--dim); }
+    .ticker-item .tk-price { color: var(--ink); font-weight: 600; }
+    .ticker-item .tk-up { color: var(--success); }
+    .ticker-item .tk-down { color: var(--error); }
+
+    /* ── TABS JEUX ── */
+    .game-tabs { display: flex; gap: 0.4rem; overflow-x: auto; padding-bottom: 0.5rem; margin-bottom: 1.2rem; scrollbar-width: none; }
+    .game-tabs::-webkit-scrollbar { display: none; }
+    .game-tab {
+        flex-shrink: 0; padding: 0.6rem 1rem; border-radius: 20px;
+        border: 1px solid var(--border); background: var(--panel);
+        color: var(--dim); font-size: 0.78rem; font-weight: 600; cursor: pointer;
+        transition: all 0.15s; display: flex; align-items: center; gap: 0.4rem;
+    }
+    .game-tab:active { transform: scale(0.96); }
+    .game-tab.active { color: #fff; border-color: transparent; }
+    .game-tab[data-game="fc"].active { background: var(--fc); }
+    .game-tab[data-game="cs"].active { background: var(--cs); }
+    .game-tab[data-game="fn"].active { background: var(--fn); }
+    .game-tab[data-game="rl"].active { background: var(--rl); }
+    .game-tab[data-game="vl"].active { background: var(--vl); }
+    .game-tab .gt-emoji { font-size: 1rem; }
+
+    /* ── PANELS ── */
+    .game-panel { display: none; animation: fadeIn 0.3s ease; }
+    .game-panel.active { display: block; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+    .game-hero {
+        border-radius: var(--radius); padding: 1.2rem 1.3rem; margin-bottom: 1rem;
+        position: relative; overflow: hidden;
+    }
+    .game-hero::before {
+        content: ''; position: absolute; inset: 0; opacity: 0.08;
+        background: radial-gradient(circle at 30% 20%, #fff, transparent 60%);
+    }
+    .game-hero[data-game="fc"] { background: linear-gradient(135deg, #003049, #00b4d8); }
+    .game-hero[data-game="cs"] { background: linear-gradient(135deg, #2b1a0e, #ff6b35); }
+    .game-hero[data-game="fn"] { background: linear-gradient(135deg, #1a0b2e, #9b59b6); }
+    .game-hero[data-game="rl"] { background: linear-gradient(135deg, #0a1a2e, #3498db); }
+    .game-hero[data-game="vl"] { background: linear-gradient(135deg, #1a0a0e, #ff4655); }
+    .game-hero h2 { font-size: 1.3rem; font-weight: 700; color: #fff; margin-bottom: 0.2rem; position: relative; }
+    .game-hero p { font-size: 0.78rem; color: rgba(255,255,255,0.75); position: relative; }
+
+    /* ── STATS GRID ── */
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.6rem; margin-bottom: 1rem; }
+    .stat-card {
+        background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+        padding: 0.8rem 1rem; display: flex; flex-direction: column; gap: 0.3rem;
+    }
+    .stat-card .sc-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--dim); font-weight: 600; }
+    .stat-card .sc-value { font-size: 1.1rem; font-weight: 700; font-family: ui-monospace, monospace; }
+    .stat-card .sc-change { font-size: 0.7rem; font-weight: 600; }
+    .stat-card .sc-change.up { color: var(--success); }
+    .stat-card .sc-change.down { color: var(--error); }
+    .stat-card .sc-change.neutral { color: var(--warn); }
+
+    /* ── MARKET TABLE ── */
+    .market-section { margin-bottom: 1.2rem; }
+    .market-section h3 { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--dim); margin-bottom: 0.6rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem; }
+    .market-section h3 .badge { background: var(--bg3); padding: 0.1rem 0.5rem; border-radius: 10px; font-size: 0.6rem; color: var(--faint); }
+
+    .market-list { display: flex; flex-direction: column; gap: 0.4rem; }
+    .market-item {
+        display: flex; align-items: center; gap: 0.8rem;
+        background: var(--panel); border: 1px solid var(--border);
+        border-radius: 8px; padding: 0.65rem 0.9rem; transition: border-color 0.15s;
+    }
+    .market-item:hover { border-color: var(--faint); }
+    .market-item .mi-icon { font-size: 1.2rem; flex-shrink: 0; width: 2rem; text-align: center; }
+    .market-item .mi-info { flex: 1; min-width: 0; }
+    .market-item .mi-name { font-size: 0.82rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .market-item .mi-meta { font-size: 0.65rem; color: var(--faint); margin-top: 0.1rem; }
+    .market-item .mi-price { font-family: ui-monospace, monospace; font-size: 0.85rem; font-weight: 700; text-align: right; flex-shrink: 0; }
+    .market-item .mi-trend { font-size: 0.65rem; font-weight: 600; text-align: right; flex-shrink: 0; width: 60px; }
+    .mi-trend.up { color: var(--success); }
+    .mi-trend.down { color: var(--error); }
+    .mi-trend.flat { color: var(--faint); }
+
+    /* ── HOOKS ── */
+    .hooks-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 0.8rem; margin-top: 1rem; }
+    .hook-card {
+        background: var(--panel2); border: 1px solid var(--border); border-radius: 10px;
+        padding: 1rem 1.1rem; position: relative; overflow: hidden;
+    }
+    .hook-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; }
+    .hook-card[data-game="fc"]::before { background: var(--fc); }
+    .hook-card[data-game="cs"]::before { background: var(--cs); }
+    .hook-card[data-game="fn"]::before { background: var(--fn); }
+    .hook-card[data-game="rl"]::before { background: var(--rl); }
+    .hook-card[data-game="vl"]::before { background: var(--vl); }
+    .hook-card .hc-tag { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--dim); font-weight: 700; margin-bottom: 0.4rem; }
+    .hook-card .hc-title { font-size: 0.9rem; font-weight: 700; margin-bottom: 0.4rem; line-height: 1.3; }
+    .hook-card .hc-desc { font-size: 0.75rem; color: var(--dim); line-height: 1.5; }
+    .hook-card .hc-action { display: inline-block; margin-top: 0.6rem; font-size: 0.7rem; font-weight: 700; color: var(--accent); text-decoration: none; }
+
+    /* ── FOOTER ── */
+    .footer { text-align: center; padding: 2rem 0 1rem; font-size: 0.65rem; color: var(--faint); border-top: 1px solid var(--border); margin-top: 2rem; }
+    .footer a { color: var(--dim); text-decoration: none; }
+
+    /* ── STATUS BAR ── */
+    .status-bar {
+        position: fixed; bottom: 0; left: 0; right: 0;
+        background: var(--panel); border-top: 1px solid var(--border);
+        padding: 0.6rem 1rem; font-size: 0.7rem; color: var(--dim);
+        display: flex; justify-content: space-between; align-items: center;
+        z-index: 100; font-family: ui-monospace, monospace;
+    }
+    .status-bar .live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--success); display: inline-block; margin-right: 0.3rem; animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+    .hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<header>
+    <div class="logo">GameMarket Hooks</div>
+    <p class="subtitle">Échanges de joueurs & prix du marché — 5 jeux, 1 seul endroit</p>
+</header>
+
+<!-- Ticker -->
+<div class="ticker-wrap">
+    <div class="ticker" id="ticker"></div>
+</div>
+
+<!-- Tabs -->
+<div class="game-tabs" id="game-tabs">
+    <button class="game-tab active" data-game="fc"><span class="gt-emoji">⚽</span> EA FC 26</button>
+    <button class="game-tab" data-game="cs"><span class="gt-emoji">🔫</span> CS2</button>
+    <button class="game-tab" data-game="fn"><span class="gt-emoji">🏗️</span> Fortnite</button>
+    <button class="game-tab" data-game="rl"><span class="gt-emoji">🚗</span> Rocket League</button>
+    <button class="game-tab" data-game="vl"><span class="gt-emoji">🎯</span> Valorant</button>
+</div>
+
+<!-- ═══════════════ EA FC 26 ═══════════════ -->
+<div class="game-panel active" id="panel-fc">
+    <div class="game-hero" data-game="fc">
+        <h2>⚽ EA Sports FC 26 — Ultimate Team</h2>
+        <p>Le marché des joueurs FUT : cartes, Évolutions, prix en temps réel</p>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <span class="sc-label">Cartes en circulation</span>
+            <span class="sc-value">2.4M+</span>
+            <span class="sc-change up">▲ 12% cette semaine</span>
+        </div>
+        <div class="stat-card">
+            <span class="sc-label">Prix moyen (or)</span>
+            <span class="sc-value">4,200</span>
+            <span class="sc-change down">▼ 3%</span>
+        </div>
+        <div class="stat-card">
+            <span class="sc-label">Évolutions actives</span>
+            <span class="sc-value">18</span>
+            <span class="sc-change neutral">● Stable</span>
+        </div>
+        <div class="stat-card">
+            <span class="sc-label">Volume d'échanges 24h</span>
+            <span class="sc-value">890K</span>
+            <span class="sc-change up">▲ 8%</span>
+        </div>
+    </div>
+
+    <div class="market-section">
+        <h3>🔥 Joueurs les plus échangés <span class="badge">Mise à jour en direct</span></h3>
+        <div class="market-list" id="fc-market"></div>
+    </div>
+
+    <div class="market-section">
+        <h3>💡 Hooks & Opportunités</h3>
+        <div class="hooks-grid" id="fc-hooks"></div>
+    </div>
+</div>
+
+<!-- ═══════════════ CS2 ═══════════════ -->
+<div class="game-panel" id="panel-cs">
+    <div class="game-hero" data-game="cs">
+        <h2>🔫 Counter-Strike 2 — Skins & Stickers</h2>
+        <p>Le marché Steam : couteaux, fusils, stickers de Major</p>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <span class="sc-label">Items sur le marché</span>
+            <span class="sc-value">35.4K</span>
+            <span class="sc-change neutral">● Stable</span>
+        </div>
+        <div class="stat-card">
+            <span class="sc-label">Valeur totale listée</span>
+            <span class="sc-value">$19M</span>
+            <span class="sc-change up">▲ 5%</span>
+        </div>
+        <div class="stat-card">
+            <span class="sc-label">Frais Steam</span>
+            <span class="sc-value">15%</span>
+            <span class="sc-change down">▼ vs marchés tiers</span>
+        </div>
+        <div class="stat-card">
+            <span class="sc-label">Volume 24h</span>
+            <span class="sc-value">1.2M</span>
+            <span class="sc-change up">▲ 15%</span>
+        </div>
+    </div>
+
+    <div class="market-section">
+        <h3>🔥 Skins les plus échangés <span class="badge">Steam Community Market</span></h3>
+        <div class="market-list" id="cs-market"></div>
+    </div>
+
+    <div class="market-section">
+        <h3>💡 Hooks & Opportunités</h3>
+        <div class="hooks-grid" id="cs-hooks"></div>
+    </div>
+</div>
+
+<!-- ═══════════════ Fortnite ═══════════════ -->
+<div class="game-panel" id="panel-fn">
+    <div class="game-hero" data-game="fn">
+        <h2>🏗️ Fortnite — Cosmétiques & Échanges</h2>
+        <p>Skins, emotes, comptes : le marché parallèle des cosmétiques</p>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <span class="sc-label">Cosmétiques totaux</span>
+            <span class="sc-value">21K+</span>
+            <span class="sc-change neutral">● Évolutif</span>
+        </div>
+        <div class="stat-card">
+            <span class="sc-label">Boutique du jour</span>
+            <span class="sc-value">6 items</span>
+            <span class="sc-change up">▲ Rotation dans 4h</span>
+        </div>
+        <div class="stat-card">
+            <span class="sc-label">Serveur d'échange actif</span>
+            <span class="sc-value">2.8K</span>
+            <span class="sc-change down">▼ 4.5% (30j)</span>
+        </div>
+        <div class="stat-card">
+            <span class="sc-label">Valeur moyenne compte</span>
+            <span class="sc-value">$240</span>
+            <span class="sc-change up">▲ 12%</span>
+        </div>
+    </div>
+
+    <div class="market-section">
+        <h3>🔥 Cosmétiques les plus recherchés <span class="badge">Marché parallèle</span></h3>
+        <div class="market-list" id="fn-market"></div>
+    </div>
+
+    <div class="market-section">
+        <h3>💡 Hooks & Opportunités</h3>
+        <div class="hooks-grid" id="fn-hooks"></div>
+    </div>
+</div>
+
+<!-- ═══════════════ Rocket League ═══════════════ -->
+<div class="game-panel" id="panel-rl">
+    <div class="game-hero" data-game="rl">
+        <h2>🚗 Rocket League — Items & Blueprints</h2>
+        <p>Le marché des items : roues, carrosseries, décals, buts</p>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <span class="sc-label">Items échangeables</span>
+            <span class="sc-value">12K+</span>
+            <span class="sc-change neutral">● Stable</span>
+        </div>
+        <div class="stat-card">
+            <span class="sc-label">Prix moyen (crédits)</span>
+            <span class="sc-value">850</span>
+            <span class="sc-change up">▲ 6%</span>
+        </div>
+        <div class="stat-card">
+            <span class="sc-label">Blueprints actifs</span>
+            <span class="sc-value">340</span>
+            <span class="sc-change down">▼ 2%</span>
+        </div>
+        <div class="stat-card">
+            <span class="sc-label">Échanges 24h</span>
+            <span class="sc-value">45K</span>
+            <span class="sc-change up">▲ 11%</span>
+        </div>
+    </div>
+
+    <div class="market-section">
+        <h3>🔥 Items les plus échangés <span class="badge">Marché communautaire</span></h3>
+        <div class="market-list" id="rl-market"></div>
+    </div>
+
+    <div class="market-section">
+        <h3>💡 Hooks & Opportunités</h3>
+        <div class="hooks-grid" id="rl-hooks"></div>
+    </div>
+</div>
+
+<!-- ═══════════════ Valorant ═══════════════ -->
+<div class="game-panel" id="panel-vl">
+    <div class="game-hero" data-game="vl">
+        <h2>🎯 Valorant — Skins & Boutique</h2>
+        <p>La boutique rotative : skins exclusifs, couteaux, bundles</p>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <span class="sc-label">Skins en boutique</span>
+            <span class="sc-value">4</span>
+            <span class="sc-change up">▲ Rotation dans 12h</span>
+        </div>
+        <div class="stat-card">
+            <span class="sc-label">Bundles actifs</span>
+            <span class="sc-value">1</span>
+            <span class="sc-change neutral">● Night Market</span>
+        </div>
+        <div class="stat-card">
+            <span class="sc-label">Prix moyen (VP)</span>
+            <span class="sc-value">1,775</span>
+            <span class="sc-change up">▲ 4%</span>
+        </div>
+        <div class="stat-card">
+            <span class="sc-label">Couteaux les plus chers</span>
+            <span class="sc-value">5,950 VP</span>
+            <span class="sc-change neutral">● Elderflame</span>
+        </div>
+    </div>
+
+    <div class="market-section">
+        <h3>🔥 Skins les plus désirés <span class="badge">Boutique rotative</span></h3>
+        <div class="market-list" id="vl-market"></div>
+    </div>
+
+    <div class="market-section">
+        <h3>💡 Hooks & Opportunités</h3>
+        <div class="hooks-grid" id="vl-hooks"></div>
+    </div>
+</div>
+
+<!-- Footer -->
+<div class="footer">
+    <p>GameMarket Hooks — Données agrégées depuis les marchés publics et communautés de joueurs.</p>
+    <p style="margin-top:0.3rem;">Les prix sont indicatifs et peuvent varier selon la plateforme et la région. <a href="#">Sources & méthodologie</a></p>
+</div>
+
+<!-- Status bar -->
+<div class="status-bar">
+    <span><span class="live-dot"></span> Données mises à jour</span>
+    <span id="status-time">—</span>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════════
+// DONNÉES — Marchés & Hooks (agrégées, prêtes à brancher sur API)
+// ══════════════════════════════════════════════════════════════════
+
+const MARKET_DATA = {
+    fc: {
+        ticker: [
+            { name: 'Mbappé Or', price: '128K', trend: 'up' },
+            { name: 'Haaland Or', price: '95K', trend: 'down' },
+            { name: 'Bellingham Évo', price: '210K', trend: 'up' },
+            { name: 'Vinicius IF', price: '340K', trend: 'up' },
+            { name: 'Putellas TOTW', price: '78K', trend: 'down' }
+        ],
+        market: [
+            { icon: '🟡', name: 'Kylian Mbappé (Or)', meta: 'Paris SG · Attaquant · 91', price: '128,000', trend: '+12%', dir: 'up' },
+            { icon: '🟡', name: 'Erling Haaland (Or)', meta: 'Man City · BU · 91', price: '95,500', trend: '-3%', dir: 'down' },
+            { icon: '🔵', name: 'Jude Bellingham (Évo)', meta: 'Real Madrid · MIL · 90', price: '210,000', trend: '+24%', dir: 'up' },
+            { icon: '🟣', name: 'Vinicius Jr (IF)', meta: 'Real Madrid · AG · 93', price: '340,000', trend: '+8%', dir: 'up' },
+            { icon: '🟢', name: 'Alexia Putellas (TOTW)', meta: 'Barça F · MOC · 91', price: '78,000', trend: '-5%', dir: 'down' }
+        ],
+        hooks: [
+            { tag: 'Alerte Prix', title: 'Mbappé Or franchit les 125K', desc: 'Le prix de la carte Or de Mbappé a augmenté de 12% en 48h. Les investisseurs anticipent une future Évolution. C\'est le moment de vendre si vous en avez une.' },
+            { tag: 'Évolution', title: 'Nouvelle Évo "Finisseur" disponible', desc: 'Une nouvelle Évolution pour les attaquants est en ligne. Les cartes éligibles (Bellingham, Griezmann) voient leur prix grimper de 20-30% en quelques heures.' },
+            { tag: 'Snipe', title: 'Haaland Or sous les 95K', desc: 'Le prix de Haaland a chuté de 3% suite à une promo. Si vous cherchez un BU fiable pour votre équipe, c\'est une fenêtre d\'achat intéressante.' }
+        ]
+    },
+    cs: {
+        ticker: [
+            { name: 'AK-47 Redline FT', price: '$28.50', trend: 'up' },
+            { name: 'Karambit Doppler', price: '$1,240', trend: 'down' },
+            { name: 'AWP Asiimov FT', price: '$89.00', trend: 'up' },
+            { name: 'Butterfly Fade', price: '$2,100', trend: 'up' },
+            { name: 'USP-S Kill Confirmed', price: '$42.00', trend: 'down' }
+        ],
+        market: [
+            { icon: '🔴', name: 'AK-47 | Redline (FT)', meta: 'Fusil · Classifié · 0.15 float', price: '$28.50', trend: '+5%', dir: 'up' },
+            { icon: '🟡', name: 'Karambit | Doppler (FN)', meta: 'Couteau · Covert · Phase 2', price: '$1,240', trend: '-2%', dir: 'down' },
+            { icon: '⚪', name: 'AWP | Asiimov (FT)', meta: 'Sniper · Covert · 0.22 float', price: '$89.00', trend: '+8%', dir: 'up' },
+            { icon: '🟣', name: 'Butterfly | Fade (FN)', meta: 'Couteau · Covert · 95% fade', price: '$2,100', trend: '+15%', dir: 'up' },
+            { icon: '🔵', name: 'USP-S | Kill Confirmed (MW)', meta: 'Pistolet · Covert · StatTrak', price: '$42.00', trend: '-4%', dir: 'down' }
+        ],
+        hooks: [
+            { tag: 'Major', title: 'Stickers PGL Singapore 2026 en baisse', desc: 'Les stickers du Major de Singapour ont chuté de 40% depuis leur pic. Les collectionneurs attendent la fin du tournoi pour acheter au plus bas.' },
+            { tag: 'Frais', title: 'Steam prend 15% — les marchés tiers gagnent du terrain', desc: 'Avec des frais de 15% sur Steam, de plus en plus de joueurs se tournent vers Skinport, CS.Money ou DMarket pour des transactions moins coûteuses.' },
+            { tag: 'Investissement', title: 'Les couteaux Butterfly Fade sont en hausse', desc: 'Le Butterfly Fade a pris +15% ce mois-ci. C\'est l\'un des couteaux les plus stables du marché, souvent considéré comme une valeur refuge.' }
+        ]
+    },
+    fn: {
+        ticker: [
+            { name: 'Renegade Raider', price: '$800', trend: 'up' },
+            { name: 'Black Knight', price: '$450', trend: 'up' },
+            { name: 'Travis Scott', price: '$320', trend: 'down' },
+            { name: 'OG Ghoul Trooper', price: '$280', trend: 'up' },
+            { name: 'Midas', price: '$150', trend: 'down' }
+        ],
+        market: [
+            { icon: '👑', name: 'Renegade Raider', meta: 'Skin · Saison 1 · OG', price: '$800', trend: '+18%', dir: 'up' },
+            { icon: '⚫', name: 'Black Knight', meta: 'Skin · Saison 2 · OG', price: '$450', trend: '+12%', dir: 'up' },
+            { icon: '🎤', name: 'Travis Scott', meta: 'Skin · Événement · Icon Series', price: '$320', trend: '-5%', dir: 'down' },
+            { icon: '🧟', name: 'OG Ghoul Trooper', meta: 'Skin · Halloween 2017', price: '$280', trend: '+8%', dir: 'up' },
+            { icon: '🏆', name: 'Midas', meta: 'Skin · Saison 2 Ch.2 · Battle Pass', price: '$150', trend: '-3%', dir: 'down' }
+        ],
+        hooks: [
+            { tag: 'Rareté', title: 'Les skins OG de la Saison 1 explosent', desc: 'Renegade Raider a atteint $800 sur les serveurs d\'échange. La rareté et la nostalgie font grimper les prix des tout premiers cosmétiques.' },
+            { tag: 'Boutique', title: 'Rotation dans 4 heures', desc: 'La boutique Fortnite change dans 4h. Les dataminers annoncent le retour possible d\'un skin Icon Series très demandé.' },
+            { tag: 'Compte', title: 'Valeur moyenne d\'un compte : $240', desc: 'Les comptes avec des skins OG se négocient en moyenne à $240. Un compte avec Renegade Raider peut valoir plus de $1,000.' }
+        ]
+    },
+    rl: {
+        ticker: [
+            { name: 'Titanium White Octane', price: '18,000c', trend: 'up' },
+            { name: 'Black Dieci', price: '12,500c', trend: 'up' },
+            { name: 'Gold Rush', price: '45,000c', trend: 'down' },
+            { name: 'Striker TW Octane', price: '32,000c', trend: 'up' },
+            { name: 'Alpha Cap', price: '80,000c', trend: 'neutral' }
+        ],
+        market: [
+            { icon: '⚪', name: 'Titanium White Octane', meta: 'Carrosserie · Import · TW', price: '18,000c', trend: '+10%', dir: 'up' },
+            { icon: '⚫', name: 'Black Dieci', meta: 'Roue · Exotic · Black', price: '12,500c', trend: '+6%', dir: 'up' },
+            { icon: '🟡', name: 'Gold Rush', meta: 'Roue · Limited · Gold', price: '45,000c', trend: '-8%', dir: 'down' },
+            { icon: '🔷', name: 'Striker TW Octane', meta: 'Carrosserie · Certifiée Striker', price: '32,000c', trend: '+14%', dir: 'up' },
+            { icon: '🧢', name: 'Alpha Cap', meta: 'Topper · Alpha · Ultra rare', price: '80,000c', trend: '0%', dir: 'neutral' }
+        ],
+        hooks: [
+            { tag: 'Investissement', title: 'La TW Octane reste la valeur sûre', desc: 'Avec +10% ce mois-ci, la Titanium White Octane confirme son statut de valeur refuge du marché Rocket League. Les prix montent à l\'approche des RLCS.' },
+            { tag: 'Certifié', title: 'Les items certifiés Striker prennent de la valeur', desc: 'La Striker TW Octane a pris +14%. Les collectionneurs paient une prime pour les certifications rares.' },
+            { tag: 'Blueprints', title: 'Les blueprints "Golden Gift" en hausse', desc: 'Les blueprints d\'événements saisonniers deviennent échangeables. Les collectionneurs les recherchent pour compléter leurs sets.' }
+        ]
+    },
+    vl: {
+        ticker: [
+            { name: 'Elderflame Vandal', price: '2,475 VP', trend: 'neutral' },
+            { name: 'Prime Phantom', price: '1,775 VP', trend: 'neutral' },
+            { name: 'Glitchpop Judge', price: '1,775 VP', trend: 'neutral' },
+            { name: 'Champion 2024', price: '5,950 VP', trend: 'up' },
+            { name: 'Reaver Vandal', price: '1,775 VP', trend: 'down' }
+        ],
+        market: [
+            { icon: '🔥', name: 'Elderflame Vandal', meta: 'Skin · Bundle · Légendaire', price: '2,475 VP', trend: '—', dir: 'neutral' },
+            { icon: '💎', name: 'Prime Phantom', meta: 'Skin · Bundle · Premium', price: '1,775 VP', trend: '—', dir: 'neutral' },
+            { icon: '🌈', name: 'Glitchpop Judge', meta: 'Skin · Bundle · Premium', price: '1,775 VP', trend: '—', dir: 'neutral' },
+            { icon: '🏆', name: 'Champion 2024', meta: 'Skin · VCT · Exclusif', price: '5,950 VP', trend: '▲', dir: 'up' },
+            { icon: '💀', name: 'Reaver Vandal', meta: 'Skin · Bundle · Premium', price: '1,775 VP', trend: '▼', dir: 'down' }
+        ],
+        hooks: [
+            { tag: 'Boutique', title: 'Rotation dans 12 heures', desc: 'La boutique Valorant change dans 12h. Les joueurs scrutent chaque jour l\'apparition du Elderflame ou du Reaver Vandal.' },
+            { tag: 'Night Market', title: 'Night Market actif', desc: 'Le Night Market est ouvert. C\'est l\'occasion d\'obtenir des skins à prix réduit — mais l\'offre est aléatoire et limitée dans le temps.' },
+            { tag: 'VCT', title: 'Les skins Champion 2024 sont très demandés', desc: 'Les skins exclusifs des Champions ne sont plus disponibles en boutique. Les comptes qui les possèdent prennent de la valeur sur le marché parallèle.' }
+        ]
+    }
+};
+
+// ══════════════════════════════════════════════════════════════════
+// RENDU
+// ══════════════════════════════════════════════════════════════════
+
+function renderTicker() {
+    const ticker = document.getElementById('ticker');
+    const allItems = [];
+    Object.entries(MARKET_DATA).forEach(([game, data]) => {
+        data.ticker.forEach(t => {
+            const arrow = t.trend === 'up' ? '▲' : t.trend === 'down' ? '▼' : '●';
+            const cls = t.trend === 'up' ? 'tk-up' : t.trend === 'down' ? 'tk-down' : '';
+            allItems.push(
+                '<span class="ticker-item">' +
+                    '<span class="tk-name">' + t.name + '</span>' +
+                    '<span class="tk-price">' + t.price + '</span>' +
+                    '<span class="' + cls + '">' + arrow + '</span>' +
+                '</span>'
+            );
+        });
+    });
+    // Dupliquer pour boucle infinie
+    ticker.innerHTML = allItems.join('') + allItems.join('');
+}
+
+function renderMarket(game) {
+    const data = MARKET_DATA[game];
+    if (!data) return;
+    const container = document.getElementById(game + '-market');
+    if (!container) return;
+    container.innerHTML = data.market.map(m =>
+        '<div class="market-item">' +
+            '<span class="mi-icon">' + m.icon + '</span>' +
+            '<div class="mi-info">' +
+                '<div class="mi-name">' + m.name + '</div>' +
+                '<div class="mi-meta">' + m.meta + '</div>' +
+            '</div>' +
+            '<div class="mi-price">' + m.price + '</div>' +
+            '<div class="mi-trend ' + m.dir + '">' + m.trend + '</div>' +
+        '</div>'
+    ).join('');
+}
+
+function renderHooks(game) {
+    const data = MARKET_DATA[game];
+    if (!data) return;
+    const container = document.getElementById(game + '-hooks');
+    if (!container) return;
+    container.innerHTML = data.hooks.map(h =>
+        '<div class="hook-card" data-game="' + game + '">' +
+            '<div class="hc-tag">' + h.tag + '</div>' +
+            '<div class="hc-title">' + h.title + '</div>' +
+            '<div class="hc-desc">' + h.desc + '</div>' +
+        '</div>'
+    ).join('');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════════════════════════════════
+
+function switchGame(game) {
+    document.querySelectorAll('.game-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.game-panel').forEach(p => p.classList.remove('active'));
+    document.querySelector('.game-tab[data-game="' + game + '"]').classList.add('active');
+    document.getElementById('panel-' + game).classList.add('active');
+    renderMarket(game);
+    renderHooks(game);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════════════════════
+
+(function init() {
+    // Ticker
+    renderTicker();
+
+    // Tabs
+    document.querySelectorAll('.game-tab').forEach(tab => {
+        tab.addEventListener('click', () => switchGame(tab.dataset.game));
+    });
+
+    // Panneau initial
+    switchGame('fc');
+
+    // Heure
+    function updateTime() {
+        const now = new Date();
+        document.getElementById('status-time').textContent =
+            now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    }
+    updateTime();
+    setInterval(updateTime, 30000);
+
+    // Auto-refresh des données toutes les 60 secondes (à brancher sur de vraies API)
+    setInterval(() => {
+        renderTicker();
+        const active = document.querySelector('.game-tab.active');
+        if (active) {
+            renderMarket(active.dataset.game);
+            renderHooks(active.dataset.game);
+        }
+    }, 60000);
+})();
+</script>
+
+</body>
+</html>
